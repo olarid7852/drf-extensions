@@ -2,6 +2,8 @@
 # Try to import six from Django, fallback to included `six`.
 
 
+from rest_framework.response import Response
+from rest_framework import status
 from rest_framework_extensions.cache.mixins import CacheResponseMixin
 # from rest_framework_extensions.etag.mixins import ReadOnlyETAGMixin, ETAGMixin
 from rest_framework_extensions.bulk_operations.mixins import ListUpdateModelMixin
@@ -81,3 +83,17 @@ class NestedViewSetMixin:
                 query_value = kwarg_value
                 result[query_lookup] = query_value
         return result
+
+class NestedCreateModelMixin(NestedViewSetMixin):
+    parent_kwarg_name = ''
+    parent_data_name = ''
+    def create(self, request, *args, **kwargs):
+        parents_query_dict = self.get_parents_query_dict()
+        parent_kwarg_value = parents_query_dict[self.parent_kwarg_name]
+        new_data = request.data.copy()
+        new_data[self.parent_data_name] = parent_kwarg_value
+        serializer = self.get_serializer(data=new_data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
